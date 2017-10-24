@@ -36,8 +36,9 @@ public class Tweets {
 		final ActorSystem system = ActorSystem.create("reactive-tweets");
 		final Materializer mat = ActorMaterializer.create(system);
 		
-		Source<Tweet, NotUsed> tweets = Source.repeat(
-				new Tweet(new Author("Pedro"), 1, "Ola #akka")).throttle(1, Duration.create(1, TimeUnit.SECONDS), 1, ThrottleMode.shaping());
+		Source<Tweet, NotUsed> tweets = Source
+				.repeat(new Tweet(new Author("Pedro"), 1, "Ola #akka"))
+				.throttle(1, Duration.create(1, TimeUnit.SECONDS), 1, ThrottleMode.shaping());
 //		final Source<Author, NotUsed> authors =
 //				  tweets
 //				    .filter(t -> t.hashtags().contains(AKKA))
@@ -48,42 +49,41 @@ public class Tweets {
 		Sink<Author,CompletionStage<Done>> writeAuthors=Sink.foreach(a -> System.out.println(a));
 		Sink<Hashtag,CompletionStage<Done>> writeHashtags=Sink.foreach(a -> System.out.println(a));
 		RunnableGraph.fromGraph(GraphDSL.create(b -> {
-		  final UniformFanOutShape<Tweet, Tweet> bcast = b.add(Broadcast.create(2));
-		  final FlowShape<Tweet, Author> toAuthor =
-			  b.add(Flow.of(Tweet.class).map(t -> t.author));
-		  final FlowShape<Tweet, Hashtag> toTags =
-		      b.add(Flow.of(Tweet.class).mapConcat(t -> new ArrayList<Hashtag>(t.hashtags())));
-		  final SinkShape<Author> authors = b.add(writeAuthors);
-		  final SinkShape<Hashtag> hashtags = b.add(writeHashtags);
+			final UniformFanOutShape<Tweet, Tweet> bcast = b.add(Broadcast.create(2));
+			final FlowShape<Tweet, Author> toAuthor = b.add(Flow.of(Tweet.class).map(t -> t.author));
+			final FlowShape<Tweet, Hashtag> toTags = b
+					.add(Flow.of(Tweet.class).mapConcat(t -> new ArrayList<Hashtag>(t.hashtags())));
+			final SinkShape<Author> authors = b.add(writeAuthors);
+			final SinkShape<Hashtag> hashtags = b.add(writeHashtags);
 
-		  b.from(b.add(tweets)).viaFanOut(bcast).via(toAuthor).to(authors);
+			b.from(b.add(tweets)).viaFanOut(bcast).via(toAuthor).to(authors);
 		                             b.from(bcast).via(toTags).to(hashtags);
 		  return ClosedShape.getInstance();
 		})).run(mat);
 	}
 
 	public static class Author {
-		  public final String handle;
+		public final String handle;
 
-		  public Author(String handle) {
-		    this.handle = handle;
-		  }
+		public Author(String handle) {
+			this.handle = handle;
+		}
 
 		@Override
 		public String toString() {
 			return "Author [handle=" + handle + "]";
 		}
 
-		  // ...
-		  
+		// ...
+
+	}
+
+	public static class Hashtag {
+		public final String name;
+
+		public Hashtag(String name) {
+			this.name = name;
 		}
-
-		public static class Hashtag {
-		  public final String name;
-
-		  public Hashtag(String name) {
-		    this.name = name;
-		  }
 
 		@Override
 		public int hashCode() {
@@ -115,31 +115,28 @@ public class Tweets {
 			return "Hashtag [name=" + name + "]";
 		}
 
-		  
-		  // ...
+		// ...
+	}
+
+	public static class Tweet {
+		public final Author author;
+		public final long timestamp;
+		public final String body;
+
+		public Tweet(Author author, long timestamp, String body) {
+			this.author = author;
+			this.timestamp = timestamp;
+			this.body = body;
 		}
 
-		public static class Tweet {
-		  public final Author author;
-		  public final long timestamp;
-		  public final String body;
-
-		  public Tweet(Author author, long timestamp, String body) {
-		    this.author = author;
-		    this.timestamp = timestamp;
-		    this.body = body;
-		  }
-
-		  public Set<Hashtag> hashtags() {
-		    return Arrays.asList(body.split(" ")).stream()
-		      .filter(a -> a.startsWith("#"))
-		      .map(a -> new Hashtag(a))
-		      .collect(Collectors.toSet());
-		  }
-
-		  // ...
+		public Set<Hashtag> hashtags() {
+			return Arrays.asList(body.split(" ")).stream().filter(a -> a.startsWith("#")).map(a -> new Hashtag(a))
+					.collect(Collectors.toSet());
 		}
 
-		public static final Hashtag AKKA = new Hashtag("#akka");
+		// ...
+	}
+
+	public static final Hashtag AKKA = new Hashtag("#akka");
 
 }
